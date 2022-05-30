@@ -2,6 +2,10 @@
 
 - `Walkers.sol` - ERC721A minting contract.
 
+# Note
+
+When cloning this repo, you will need to use the `--recursive` flag to correct include all submodules.
+
 # Token Distribution
 
 For clarity when auditing, it's important to understand the intended distribution of tokens to gain clarity that the code is functioning as intended. For this reason, tokens will be distributed in the following manner, assuming a max supply of `5555` tokens:
