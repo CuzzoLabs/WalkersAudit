@@ -4,7 +4,7 @@
 
 # Note
 
-When cloning this repo, you will need to use the `--recursive` flag to correct include all submodules.
+When cloning this repo, you will need to use the `--recursive` flag to correctly include all submodules.
 
 # Token Distribution
 
