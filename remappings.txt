@@ -1,0 +1,4 @@
+forge-std/=lib/forge-std/src/
+erc721a/=lib/ERC721A/
+ds-test/=lib/ds-test/src/
+@openzeppelin/=lib/openzeppelin-contracts/
