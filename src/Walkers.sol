@@ -140,7 +140,7 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
             refundAmount = amount - auctionEndPrice * (_numberMinted(msg.sender) - 1);
         }
 
-        bool success = payable(msg.sender).send(refundAmount);
+        (bool success,) = payable(msg.sender).call{value: refundAmount}("");
         if (!success) revert RefundFailed();
 
         emit Refund(msg.sender, refundAmount);
