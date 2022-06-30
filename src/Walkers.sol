@@ -7,193 +7,184 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "erc721a/contracts/extensions/ERC721AQueryable.sol";
 import "./interfaces/IWalkers.sol";
 
-contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
+/* 
+....................................................................................................
+....................................................................................................
+..........................................................:^~!77777!~^:.............................
+.............................................:::::::..:!?5PGGGGGGGGGGPPY?~..........................
+.....................................:^^~~!7?JYYYJJ7?5PGGGGGGGGGGGGGGGGGGGY^........................
+.................................^~!!!!!~?YYYYJJJY5GGGGGGGGGGGGGGGGGGGGGGGGP^.......................
+..............................^~!!!~~~~~JYJJJJJJ5GGGGGGGGGGGGGGGGGGGGGGGGGGGJ.......................
+...........................:~!!~~~~~~~~?YJJJJJYPGGGGGGGGGGGGGGGGGGGGGGGGGGGG5.......................
+..........................~7!~~~~~~~~~~JYJJJYPGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG5.......................
+........................:7!~~~~~~~~~~~~!YYJ5GGGGGGGGGGPPGGGGGGP55PGGGGGGGGGG?.......................
+.......................:7!~~~~~~~~~~~~~~!5GGGGGGGGGG5YYYY5GGPYYYYYYGGGGGGGGG^.......................
+......................:7~~~~~~~~~~~~~!7J5GGGGGGGGGG5YYYYYYPPYYYYYY5PYYYY5GB?........................
+......................7!~~~~~~~~~!?JJYPGGGGGGGPGP5YYYYYYY55YYYYYY5PYYYYYYG5.........................
+.....................^?~~~~~~~7?YYYYPGGPP555YYYYYYYYYYYYYYYYYYYY55YYYYYYPP:.........................
+.....................!!~~~~!?YYYYY5PP5YYYYYYYYYYYYYYYYYYYYYYYYYYYYY55555P:..........................
+.....................?~~~!JYYYY555YYYYYYYYY55JJYYYYYYYYYYYYYYYYYYJJ?7?5Y5^..........................
+.....................?~!JYYY555YYYYYYYYYY55J!~~~~~~!!!!!!!!!!!!!~~~~~~?55~..........................
+.....................?7YYY555YYYY5YYYYYJJ7!~~!77777!!~~~~~~!77!!!!!~~~~Y5:..........................
+.....................?5J55YYYYYYY5~~~~~~~~~~~~!!!~~!!~~~~~~!~!!!!~~~~~~7?...........................
+.....................!555YYYYYYY5Y~~~~~~~~~!!^:.:^~~!!~~~~~!!^:.:~~~!!~~7...........................
+.....................:55YYYYYYYY57~~~~~~~~7~    ~G&B:^7~~~7:    ?B&5.!!~?:..........................
+....................::YYY55YYY557~~~~~~~~~7     .!@@~ !!7!~     .J@#. 7~?^..........................
+..................^!!!!!!!7J55J!~~~~~~~~~~7:.:^^JGB#!.7~!?7.:^^~5GBG:^7~7~..........................
+.................!!~!7!!??!~!7~~~~~~~~~~~~~??!~~~~~~7?!~~~!??!~~~~~!??~~7~..........................
+................~7~~~~!?77??~~~~~~~~~~~~~~~~!7!~~~~~!~~~~~~~J?~~~~~~!~~~!!..........................
+................!!~~~~!!!!!?!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~?!~~~~~~~~~~~7..........................
+................^7~~~~~~~~~~~~~~~~~~~~~~~~~~~!7!~~~~~~~~~~!7!~~~~~~~~~~~~?..........................
+.................~7!~~~~~~~~~~~~~~~~~~~~~~~~?7~?Y7~!!~~~!7!~~~~~~~~~~~~~~7..........................
+..................:~!!!!!~~~~~~~~~~~~~~~~~~~7^?BBY^:^~~~~!~~!~~~~~~~~~~~!~..........................
+.....................::~?~~~~~~~~~~~~~~~~~~~~~7PYYYY?7!!~~^~55~7!~~~~~~~?:..........................
+........................~7~~~~~~~~~~~~~~~~~~~~~7JYYYYY5BBBBBBP~?!~~~~~~7~...........................
+.........................~7~~~~~~~~~~~~~~~~~~~~~~!?JYYYGBBGPJ~77~~~~~~7!............................
+..........................:!!~~~~~~~~~~~~~~~~~~~~~~~~!!777!~~~~~~~~~~7~.............................
+............................^!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!!:..............................
+..............................:^~!!!~~~~~~~~~~~~~~~~~~~~~~~~~~~!!!~:................................
+..................................:^~!!!~~~~~~~~~~~~~~~~~~!!!!!~:...................................
+.......................................7~~~~~~~~~~!77777J~^^:.......................................
+.......................................?!~~~~~~~~~~~!!77J:..........................................
+......................................!!^^^~~~~~~~~~~^~^~7..........................................
+..............................::^^~~!?J!!!~~~^^^^^~~~~!!!?J!~^^^:...................................
+...........................^~!!!!!!7?!!?!~!!!!!!!!!!!!!~~?77?7!!!!~^................................
+........................:~!?7!!~~7?!~~~!?7~~~~~~~~~~~~~~~J~~~!77!!7?7^..............................
+......................:~7!~~~!!77!~~~~~~~7?~~~~~~~~~~~~~7?~~~~~!7!!~~7!.............................
+.....................:7!~~~~~~~~~~~~~~~~~~7?~~~~~~~~~~~~?!~~~~~~~~~~~~7~............................
+.....................7!~~~~~77~~~~~~~~~~~~~7?~~!~~~~~~~!J~~~~~~~~~~~~~~?:...........................
+.....................?~~~~~7!~7~~~~~~~~~~~~~7?~~~~~~~~~77~~~~~~~~~~~~~~7~...........................
+.....................?~~~~7!~~~7~~~~~~~~~~~~~?7~~~~~~~~J!~~~~~~~~~~~~~~!7...........................
+*/
 
+/// @title ERC721 Token for Multiversal Walkers
+/// @author ItsCuzzo
+
+contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     using ECDSA for bytes32;
 
     enum SaleStates {
         PAUSED,
-        WHITELIST,
         PUBLIC,
-        AUCTION,
-        REFUND
+        MULTI
     }
 
     SaleStates public saleState;
 
     string private _baseTokenURI;
-    string private _contractURI;
-    address private _signerAddress;
+    address private _signer;
 
     uint256 public constant MAX_SUPPLY = 5555;
-    uint256 public constant RESERVED_TOKENS = 50;
+    uint256 public constant RESERVED_TOKENS = 55;
+    uint256 public constant WALLET_LIMIT = 2;
 
-    uint256 public constant FA_WALLET_LIMIT = 20;
-    uint256 public constant FA_SUPPLY = 3555;
-    uint256 public constant FA_START_PRICE = 1 ether;
-    uint256 public constant FA_STEP_DURATION = 5 minutes;
-    uint256 public constant FA_DECREMENT = 0.1 ether;
-    uint256 public constant FA_RESERVE_PRICE = 0.1 ether;
-    uint256 public auctionStartTime;
-    uint256 public auctionEndPrice;
+    uint256 public constant PUBLIC_PRICE = 0.25 ether;
+    uint256 public constant MULTI_PRICE = 0.175 ether;
 
-    mapping (address => uint256) public spend;
+    /// @dev Sets a soft-cap to be used in the `PUBLIC` sale phase.
+    /// In the event of a FCFS mint, set this value to `MAX_SUPPLY`.
+    uint256 public publicTokens = 2555;
 
     event Minted(address indexed receiver, uint256 quantity);
-    event Refund(address indexed receiver, uint256 amount);
 
     constructor(
         address[] memory payees,
         uint256[] memory shares_,
         address receiver
-    ) ERC721A("Test", "TEST") PaymentSplitter(payees, shares_) {
-        teamMint(receiver, RESERVED_TOKENS);
+    ) ERC721A("Multiversal Walkers", "MWALK") PaymentSplitter(payees, shares_) {
+        ownerMint(receiver, RESERVED_TOKENS);
     }
 
-    /// @dev Fair auction.
-    function auctionMint(uint256 quantity, bytes calldata signature) external payable {
-        if (msg.sender != tx.origin) revert NonEOA();
-        if (saleState != SaleStates.AUCTION) revert InvalidSaleState();
-        if (auctionStartTime == 0) revert InvalidStartTime();
-        if (_numberMinted(msg.sender) + quantity > FA_WALLET_LIMIT) revert WalletLimitExceeded();
+    /// @notice Function used to mint Walkers during the public mint.
+    /// @dev No explicit check of `quantity` is required as signatures are created ahead of time.
+    function publicMint(uint256 quantity, bytes calldata signature) external payable {
+        if (saleState != SaleStates.PUBLIC) revert InvalidSaleState();
+        if (msg.value != PUBLIC_PRICE * quantity) revert InvalidEtherAmount();
+        if (_numberMinted(msg.sender) + quantity > WALLET_LIMIT) revert WalletLimitExceeded();
         
+        /// @dev The new total supply of tokens including `quantity`.
         uint256 newSupply = _totalMinted() + quantity;
-        uint256 price = getAuctionPrice();
 
-        if (newSupply > FA_SUPPLY) revert AuctionSupplyExceeded();
-        if (msg.value < price * quantity) revert InvalidEtherAmount();
-        if (!_verifySignature(signature, 'AUCTION')) revert InvalidSignature();
-
-        if (newSupply == FA_SUPPLY) {
-            auctionEndPrice = price;
-        }
-        
-        unchecked {
-            spend[msg.sender] += msg.value;
-        }
+        if (newSupply > MAX_SUPPLY) revert MaxSupplyExceeded();
+        if (newSupply > publicTokens) revert PublicSupplyExceeded();
+        if (!_verifySignature(signature, quantity, 'PUBLIC')) revert InvalidSignature();
 
         _mint(msg.sender, quantity);
 
         emit Minted(msg.sender, quantity);
     }
 
-    function publicMint(bytes calldata signature) external payable {
-        if (msg.sender != tx.origin) revert NonEOA();
-        if (saleState != SaleStates.PUBLIC) revert InvalidSaleState();
-        if (_totalMinted() + 1 > MAX_SUPPLY) revert MaxSupplyExceeded();
-        if (auctionEndPrice == 0) revert InvalidAuctionEndPrice();
-        if (msg.value != auctionEndPrice) revert InvalidEtherAmount();
-        if (_getAux(msg.sender) != 0) revert TokenAlreadyClaimed();
-        if (!_verifySignature(signature, 'PUBLIC')) revert InvalidSignature();
+    /// @notice Function used to mint Walkers during the Multilist mint.
+    /// @dev This function may only be called ONCE. No explicit check of `quantity` is
+    /// required as signatures are created ahead of time.
+    function multilistMint(uint256 quantity, bytes calldata signature) external payable {
+        if (saleState != SaleStates.MULTI) revert InvalidSaleState();
+        if (msg.value != MULTI_PRICE * quantity) revert InvalidEtherAmount();
+        if (_totalMinted() + quantity > MAX_SUPPLY) revert MaxSupplyExceeded();
+        if (_getAux(msg.sender) != 0) revert TokenClaimed();
+        if (!_verifySignature(signature, quantity, 'MULTI')) revert InvalidSignature();
 
-        /// @dev Set arbitrary value to acknowledge user has minted.
-        /// Updating aux value to non-zero is cheaper then updating a mapping.
+        /// @dev Set arbitrary value to acknowledge that the user has claimed.
         _setAux(msg.sender, 1);
 
-        _mint(msg.sender, 1);
+        _mint(msg.sender, quantity);
 
-        emit Minted(msg.sender, 1);
+        emit Minted(msg.sender, quantity);
     }
 
-    function whitelistMint(bytes calldata signature) external payable {
-        if (msg.sender != tx.origin) revert NonEOA();
-        if (saleState != SaleStates.WHITELIST) revert InvalidSaleState();
-        if (_totalMinted() + 1 > MAX_SUPPLY) revert MaxSupplyExceeded();
-        if (auctionEndPrice == 0) revert InvalidAuctionEndPrice();
-        if (msg.value != auctionEndPrice / 2) revert InvalidEtherAmount();
-        if (_getAux(msg.sender) != 0) revert TokenAlreadyClaimed();
-        if (!_verifySignature(signature, 'WHITELIST')) revert InvalidSignature();
-
-        _setAux(msg.sender, 1);
-
-        _mint(msg.sender, 1);
-
-        emit Minted(msg.sender, 1);
+    /// @dev Function used to mint `quantity` of tokens to `receiver`.
+    function ownerMint(address receiver, uint256 quantity) public onlyOwner {
+        if (_totalMinted() + quantity > MAX_SUPPLY) revert MaxSupplyExceeded();
+        _mint(receiver, quantity);
     }
 
-    function getAuctionPrice() public view returns (uint256) {
-        if (saleState != SaleStates.AUCTION || auctionStartTime >= block.timestamp) {
-            return FA_START_PRICE;
-        }
-
-        uint256 decrements = (block.timestamp - auctionStartTime) / FA_STEP_DURATION;
-        if (decrements * FA_DECREMENT >= FA_START_PRICE) {
-            return FA_RESERVE_PRICE;
-        }
-
-        return FA_START_PRICE - decrements * FA_DECREMENT;
+    /// @notice Function used to get ownership data for a Walker token.
+    function tokenOwnership(uint256 id) public view returns (TokenOwnership memory) {
+        return _ownershipOf(id);
     }
 
-    function refund() external {
-        if (msg.sender != tx.origin) revert NonEOA();
-        if (saleState != SaleStates.REFUND) revert InvalidSaleState();
-        
-        uint256 amount = spend[msg.sender];
-        if (amount == 0) revert InvalidSpendAmount();
-
-        spend[msg.sender] = 0;
-
-        uint256 refundAmount;
-        if (_getAux(msg.sender) == 0) {
-            refundAmount = amount - auctionEndPrice * _numberMinted(msg.sender);
-        } else {
-            refundAmount = amount - auctionEndPrice * (_numberMinted(msg.sender) - 1);
-        }
-
-        (bool success,) = payable(msg.sender).call{value: refundAmount}("");
-        if (!success) revert RefundFailed();
-
-        emit Refund(msg.sender, refundAmount);
-    }
-    
-    function release(address payable account) public override {
-        if (msg.sender != account) revert AccountMismatch();
-        super.release(account);
-    }
-
-    /// @notice Function used to get token ownership data for a specified token ID.
-    function tokenOwnership(uint256 tokenId) public view returns (TokenOwnership memory) {
-        return _ownershipOf(tokenId);
-    }
-
-    /// @notice Function used to get the aux value for a specified address.
+    /// @notice Function used to get the aux value of `account`.
+    /// @dev `1` indicates the user has claimed, `0` otherwise.
     function getAux(address account) public view returns (uint64) {
         return _getAux(account);
     }
 
-    function setAuctionStartTime(uint256 newAuctionStartTime) external onlyOwner {
-        if (newAuctionStartTime < block.timestamp) revert InvalidStartTime();
-        auctionStartTime = newAuctionStartTime;
+    /// @notice Function used to get the current `_signer` value.
+    function signer() external view returns (address) {
+        return _signer;
     }
 
+    /// @notice Function used to set the max number of tokens mintable
+    /// during the `PUBLIC` sale.
+    function setPublicTokens(uint256 newPublicTokens) external onlyOwner {
+        if (newPublicTokens > MAX_SUPPLY) revert InvalidTokenAmount();
+
+        publicTokens = newPublicTokens;
+    }
+
+    /// @notice Function used to set a new `saleState` value.
+    /// @dev 0 = PAUSED, 1 = PUBLIC, 2 = MULTI
     function setSaleState(uint256 newSaleState) external onlyOwner {
-        if (newSaleState > uint256(SaleStates.REFUND)) revert InvalidSaleState();
+        /// @dev Confirm `newSaleState` is not greater than `MULTI`.
+        if (newSaleState > uint256(SaleStates.MULTI)) revert InvalidSaleState();
+
         saleState = SaleStates(newSaleState);
     }
 
-    function setSignerAddress(address newSignerAddress) external onlyOwner {
-        _signerAddress = newSignerAddress;
+    /// @notice Function used to set a new `_signer` value.
+    function setSigner(address newSigner) external onlyOwner {
+        _signer = newSigner;
     }
 
+    /// @notice Function used to set a new `_baseTokenURI` value.
     function setBaseTokenURI(string memory newBaseTokenURI) external onlyOwner {
         _baseTokenURI = newBaseTokenURI;
     }
 
-    function setContractURI(string memory newContractURI) external onlyOwner {
-        _contractURI = newContractURI;
-    }
-
-    function teamMint(address receiver, uint256 quantity) public onlyOwner {
-        if (_totalMinted() + quantity > MAX_SUPPLY) revert MaxSupplyExceeded();
-        _safeMint(receiver, quantity);
-    }
-
-    function contractURI() external view returns (string memory) {
-        return _contractURI;
-    }
-
-    function signerAddress() external view returns (address) {
-        return _signerAddress;
+    /// @notice Function used to claim revenue share for `account`.
+    function release(address payable account) public override {
+        if (msg.sender != account) revert AccountMismatch();
+        super.release(account);
     }
 
     function _baseURI() internal view override returns (string memory) {
@@ -205,12 +196,13 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     }
 
     function _verifySignature(
-        bytes calldata signature,
+        bytes memory signature,
+        uint256 quantity,
         string memory phase
     ) internal view returns (bool) {
-        return _signerAddress == keccak256(abi.encodePacked(
+        return _signer == keccak256(abi.encodePacked(
             "\x19Ethereum Signed Message:\n32",
-            bytes32(abi.encodePacked(uint160(msg.sender), phase))
+            bytes32(abi.encodePacked(msg.sender, uint8(quantity), phase))
         )).recover(signature);
     }
 
