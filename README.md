@@ -3,8 +3,8 @@
 This repository contains all smart contracts relating to the Multiversal Walkers project. This project utilises the Ethereum blockchain to deliver an NFT experience like no other and uses [Foundry](https://github.com/foundry-rs/foundry) as its testing framework.
 
 - `Walkers.sol` - ERC721 Genesis Token.
-- `Passport.sol` - ERC721 Passport.
-- ~~`FERC1155Distributor.sol` - FERC1155 Token Distributor.~~
+- ~~`Passport.sol` - ERC721 Passport.~~
+- `FERC1155Distributor.sol` - FERC1155 Token Distributor.
 - ~~`Portal.sol` - ERC1155 Portal.~~
 
 # Testing
