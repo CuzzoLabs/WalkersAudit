@@ -4,8 +4,8 @@ This repository contains all smart contracts relating to the Multiversal Walkers
 
 - `Walkers.sol` - ERC721 Genesis Token.
 - `Passport.sol` - ERC721 Passport.
-- `FERC1155Distributor.sol` - FERC1155 Token Distributor.
-- `Portal.sol` - ERC1155 Portal.
+- ~~`FERC1155Distributor.sol` - FERC1155 Token Distributor.~~
+- ~~`Portal.sol` - ERC1155 Portal.~~
 
 # Testing
 
