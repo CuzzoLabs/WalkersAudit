@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity 0.8.10;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -26,21 +26,27 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
     IFERC1155 public immutable fractions;
     IWalkers public immutable walkers;
 
+    /// @dev Variables used for bit-ticketing claim, further details of this implementation
+    /// can be found here: https://bit.ly/3nqshRB
     uint256[22] public claims;
-    uint256 private constant _MAX_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+    uint256 private constant _MAX_INT = type(uint256).max;
 
     uint256 public constant FRACTION_PRICE = 0.01 ether;
     uint256 public constant WALLET_LIMIT = 2;
     
-    /// @dev The amount of time a Walker must hold to be eligable for a free claim.
+    /// @dev Amount of time (in seconds) a Walker must be held to be eligable for a free claim.
     uint256 public holdTimer = 7 days;
 
     uint256 public fractionId;
 
-    /// @dev `address` => `amount`, how many FERC1155 tokens an address has claimed.
+    /// @dev Indicates the `amount` of FERC1155 tokens an `address` has claimed.
     mapping (address => uint256) public amount;
 
     event Claimed(address indexed receiver, uint256 quantity);
+    event SetSaleState(address indexed account, uint256 saleState);
+    event SetSigner(address indexed account, address signer);
+    event SetFractionId(address indexed account, uint256 fractionId);
+    event SetHoldTimer(address indexed account, uint256 holdTimer);
 
     /// @dev `walkers_` is the address of the Multiversal Walkers contract.
     /// @dev `fractions_` is the address of the fractional.art FERC1155 contract.
@@ -54,31 +60,30 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
         _frontGas();
     }
 
-    /// @notice Function used to claim FERC1155 tokens.
+    /// @notice Function used to purchase FERC1155 tokens during the `PUBLIC` sale state.
+    /// @param quantity Desired number of FERC1155 tokens to purchase.
+    /// @param signature Signed message digest.
     function claim(uint256 quantity, bytes calldata signature) external payable {
         if (msg.sender != tx.origin) revert NonEOA();
         if (saleState != SaleStates.PUBLIC) revert InvalidSaleState();
         
-        /// @dev Explicit check if `quantity` is greater than 0 as will not revert otherwise.
         if (quantity == 0) revert InvalidTxnAmount();
 
         if (msg.value != quantity * FRACTION_PRICE) revert InvalidEtherAmount();
         if (amount[msg.sender] + quantity > WALLET_LIMIT) revert OverWalletLimit();
         if (!_verifySignature(signature)) revert InvalidSignature();
 
-        /// @dev Overflow is not possible in this context as `quantity` will never be greater than `WALLET_LIMIT`.
         unchecked {
             amount[msg.sender] += quantity;
         }
 
-        /// @dev Transfer `quantity` of FERC1155 tokens to caller.
         fractions.safeTransferFrom(address(this), msg.sender, fractionId, quantity, "");
 
         emit Claimed(msg.sender, quantity);
     }
 
-    /// @notice Function used to claim an FERC1155 token dependent on time a Walker is held.
-    /// @param ids A Multiversal Walkers token ID.
+    /// @notice Function used to claim a varying amount of FERC1155 tokens.
+    /// @param ids An array of Multiversal Walkers token IDs.
     function holderClaim(uint256[] calldata ids) external {
         if (msg.sender != tx.origin) revert NonEOA();
         if (saleState != SaleStates.HOLDER) revert InvalidSaleState();
@@ -89,7 +94,6 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
         uint256 offset;
         uint256 bit;
 
-        /// @dev Overflow in this context is not possible.
         unchecked {
             for (uint256 i=0; i<ids.length; i++) {
                 id = ids[i];
@@ -114,14 +118,18 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
         emit Claimed(msg.sender, ids.length);
     }
 
-    /// @notice Function used to see if the user has a FERC1155 token available for claim.
+    /// @notice Function used to check if a Multiversal Walker token can claim a FERC1155 token.
     /// @param id A Multiversal Walkers token ID.
+    /// @return Returns a boolean value indicating whether `id` has claimed, a value of `true`
+    /// indicates that `id` has already claimed.
     function hasClaimed(uint256 id) external view returns (bool) {
         return claims[id / 256] >> id % 256 & 1 == 0;
     }
 
-    /// @notice Function used to see if the user has a FERC1155 token available for claim.
+    /// @notice Function used to check if many Multiversal Walker tokens can claim a FERC1155 token.
     /// @param ids An array of Multiversal Walkers token IDs.
+    /// @return Returns an array of  boolean value indicating whether `id` of `ids` has claimed, a value
+    /// of `true` indicates that `id` has already claimed.
     function hasClaimedMany(uint256[] calldata ids) external view returns (bool[] memory) {
         bool[] memory results = new bool[](ids.length);
         uint256 id;
@@ -134,21 +142,24 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
         return results;
     }
 
-    /// @notice Function used to view the current `_signer` value.
     function signer() external view returns (address) {
         return _signer;
     }
 
-    /// @notice Function used to set a new `_signer` value.
     function setSigner(address newSigner) external onlyOwner {
         _signer = newSigner;
+
+        emit SetSigner(msg.sender, newSigner);
     }
 
     /// @notice Function used to set a new `saleState` value.
-    /// @dev 0 = PAUSED, 1 = ACTIVE
+    /// @dev 0 = PAUSED, 1 = ACTIVE.
     function setSaleState(uint256 newSaleState) external onlyOwner {
         if (newSaleState > uint256(SaleStates.HOLDER)) revert InvalidSaleState();
+        
         saleState = SaleStates(newSaleState);
+
+        emit SetSaleState(msg.sender, newSaleState);
     }
 
     /// @notice Function used to set a new `fractionId` value.
@@ -156,14 +167,20 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
     /// identifier in the fractional.art FERC1155 contract.
     function setFractionId(uint256 newFractionId) external onlyOwner {
         fractionId = newFractionId;
+
+        emit SetFractionId(msg.sender, newFractionId);
     }
 
     /// @notice Function used to set a new `holdTimer` value.
-    /// @dev `newDiamondTimer` is some number of days in seconds.
-    /// E.g. 86400 * n, whereby n represents the amount of days.
+    /// @param newHoldTimer The amount of time, in seconds, that a user must holder a
+    /// Multiversal Walkers token for to be eligable for a free claim.
+    /// @dev 86400 * n, whereby n represents the amount of days.
     function setHoldTimer(uint256 newHoldTimer) external onlyOwner {
         if (newHoldTimer % 1 days != 0) revert InvalidTime();
+        
         holdTimer = newHoldTimer;
+
+        emit SetHoldTimer(msg.sender, newHoldTimer);
     }
 
     /// @notice Function used to withdraw Ether from this contract.
@@ -172,7 +189,7 @@ contract FERC1155Distributor is IFERC1155Distributor, Ownable {
         if (!success) revert TransferFailed();
     }
 
-    /// @notice Function used to withdraw all fractions in this contract.
+    /// @notice Function used to withdraw all fractions from this contract.
     function withdrawFractions() external onlyOwner {
         fractions.safeTransferFrom(
             address(this),

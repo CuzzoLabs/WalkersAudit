@@ -17,6 +17,10 @@ contract FERC1155DistributorTest is TestFixture {
     uint256 public fractionId;
 
     event Claimed(address indexed receiver, uint256 quantity);
+    event SetSaleState(address indexed account, uint256 saleState);
+    event SetSigner(address indexed account, address signer);
+    event SetFractionId(address indexed account, uint256 fractionId);
+    event SetHoldTimer(address indexed account, uint256 holdTimer);
 
     modifier warpForClaim() {
         vm.warp(block.timestamp + 7 days);
@@ -278,11 +282,18 @@ contract FERC1155DistributorTest is TestFixture {
     }
 
     function testSetSaleState() public {
+        vm.expectEmit(true, true, false, false);
+        emit SetSaleState(address(this), 1);
         distributor.setSaleState(uint256(FERC1155Distributor.SaleStates.PUBLIC));
+
         uint256 _state = uint256(distributor.saleState());
+
         assertEq(_state, 1);
 
+        vm.expectEmit(true, true, false, false);
+        emit SetSaleState(address(this), 0);
         distributor.setSaleState(uint256(FERC1155Distributor.SaleStates.PAUSED));
+
         _state = uint256(distributor.saleState());
         assertEq(_state, 0);
     }
@@ -299,8 +310,12 @@ contract FERC1155DistributorTest is TestFixture {
     }
 
     function testSetFractionId(uint256 newFractionId) public {
+        vm.expectEmit(true, true, false, false);
+        emit SetFractionId(address(this), newFractionId);
         distributor.setFractionId(newFractionId);
+
         uint256 _fractionId = distributor.fractionId();
+
         assertEq(_fractionId, newFractionId);
     }
 
@@ -314,8 +329,13 @@ contract FERC1155DistributorTest is TestFixture {
         vm.assume(multiplier > 0 && multiplier <= 10);
 
         uint256 time = 1 days * multiplier;
+
+        vm.expectEmit(true, true, false, false);
+        emit SetHoldTimer(address(this), time);
         distributor.setHoldTimer(time);
+
         uint256 _time = distributor.holdTimer();
+        
         assertEq(_time, time);
     }
 
@@ -331,8 +351,12 @@ contract FERC1155DistributorTest is TestFixture {
     }
 
     function testSetSigner(address newSigner) public {
+        vm.expectEmit(true, true, false, false);
+        emit SetSigner(address(this), newSigner);
         distributor.setSigner(newSigner);
+
         address _signer = distributor.signer();
+
         assertEq(_signer, newSigner);
     }
 
