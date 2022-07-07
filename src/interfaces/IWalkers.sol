@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import "erc721a/contracts/extensions/IERC721AQueryable.sol";
 
 interface IWalkers is IERC721AQueryable {
+    error NonEOA();
     error InvalidSaleState();
     error WalletLimitExceeded();
     error InvalidEtherAmount();

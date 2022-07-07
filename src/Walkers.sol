@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.10;
+pragma solidity 0.8.10;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
@@ -86,6 +86,10 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     uint256 public publicTokens = 2555;
 
     event Minted(address indexed receiver, uint256 quantity);
+    event SetPublicTokens(address indexed account, uint256 amount);
+    event SetSaleState(address indexed account, uint256 saleState);
+    event SetTokenURI(address indexed account, string tokenURI);
+    event SetSigner(address indexed account, address signer);
 
     constructor(
         address[] memory payees,
@@ -95,14 +99,17 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
         ownerMint(receiver, RESERVED_TOKENS);
     }
 
-    /// @notice Function used to mint Walkers during the public mint.
+    /// @notice Function used to mint tokens during the `PUBLIC` sale state.
+    /// @param quantity Desired number of tokens to mint.
+    /// @param signature A signed message digest.
     /// @dev No explicit check of `quantity` is required as signatures are created ahead of time.
     function publicMint(uint256 quantity, bytes calldata signature) external payable {
+        if (msg.sender != tx.origin) revert NonEOA();
         if (saleState != SaleStates.PUBLIC) revert InvalidSaleState();
         if (msg.value != PUBLIC_PRICE * quantity) revert InvalidEtherAmount();
         if (_numberMinted(msg.sender) + quantity > WALLET_LIMIT) revert WalletLimitExceeded();
         
-        /// @dev The new total supply of tokens including `quantity`.
+        /// @dev The new total supply of tokens inclusive of `quantity`.
         uint256 newSupply = _totalMinted() + quantity;
 
         if (newSupply > MAX_SUPPLY) revert MaxSupplyExceeded();
@@ -114,10 +121,13 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
         emit Minted(msg.sender, quantity);
     }
 
-    /// @notice Function used to mint Walkers during the Multilist mint.
+    /// @notice Function used to mint tokens during the `MULTI` sale state.
+    /// @param quantity Desired number of tokens to mint.
+    /// @param signature A signed message digest.
     /// @dev This function may only be called ONCE. No explicit check of `quantity` is
     /// required as signatures are created ahead of time.
     function multilistMint(uint256 quantity, bytes calldata signature) external payable {
+        if (msg.sender != tx.origin) revert NonEOA();
         if (saleState != SaleStates.MULTI) revert InvalidSaleState();
         if (msg.value != MULTI_PRICE * quantity) revert InvalidEtherAmount();
         if (_totalMinted() + quantity > MAX_SUPPLY) revert MaxSupplyExceeded();
@@ -132,56 +142,76 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
         emit Minted(msg.sender, quantity);
     }
 
-    /// @dev Function used to mint `quantity` of tokens to `receiver`.
+    /// @notice Function used to mint `quantity` of tokens to `receiver`.
+    /// @param receiver The receiving address of the newly minted tokens.
+    /// @param quantity Desired number of tokens to mint.
     function ownerMint(address receiver, uint256 quantity) public onlyOwner {
         if (_totalMinted() + quantity > MAX_SUPPLY) revert MaxSupplyExceeded();
         _mint(receiver, quantity);
     }
 
-    /// @notice Function used to get ownership data for a Walker token.
-    function tokenOwnership(uint256 id) public view returns (TokenOwnership memory) {
-        return _ownershipOf(id);
+    /// @notice Function used to get the `TokenOwnership` data for a specified token.
+    /// @param tokenId A Multiversal Walkers token ID.
+    /// @return Returns a `TokenOwnership` data type as defined in ERC721A.
+    function tokenOwnership(uint256 tokenId) public view returns (TokenOwnership memory) {
+        return _ownershipOf(tokenId);
     }
 
-    /// @notice Function used to get the aux value of `account`.
-    /// @dev `1` indicates the user has claimed, `0` otherwise.
+    /// @notice Function used to get the `aux` value for `account`.
+    /// @param account Desired `account` to check the `aux` value for.
+    /// @return Returns a value of either 1 or 0. 1 indicates the user has claimed a token
+    /// in `multilistMint`, 0 if not.
     function getAux(address account) public view returns (uint64) {
         return _getAux(account);
     }
 
+    /// @notice Function used to check how many tokens `account` has minted.
+    /// @param account Desired `account` to check the number of minted tokens.
+    /// @return Returns the number of tokens `account` has minted.
+    function numberMinted(address account) external view returns (uint256) {
+        return _numberMinted(account);
+    }
+
     /// @notice Function used to get the current `_signer` value.
+    /// @return Returns the current `_signer` value.
     function signer() external view returns (address) {
         return _signer;
     }
 
-    /// @notice Function used to set the max number of tokens mintable
-    /// during the `PUBLIC` sale.
+    /// @notice Function used to set a new `publicTokens` value.
     function setPublicTokens(uint256 newPublicTokens) external onlyOwner {
         if (newPublicTokens > MAX_SUPPLY) revert InvalidTokenAmount();
 
         publicTokens = newPublicTokens;
+
+        emit SetPublicTokens(msg.sender, newPublicTokens);
     }
 
     /// @notice Function used to set a new `saleState` value.
-    /// @dev 0 = PAUSED, 1 = PUBLIC, 2 = MULTI
+    /// @param newSaleState Newly desired `saleState` value.
+    /// @dev 0 = PAUSED, 1 = PUBLIC, 2 = MULTI.
     function setSaleState(uint256 newSaleState) external onlyOwner {
-        /// @dev Confirm `newSaleState` is not greater than `MULTI`.
         if (newSaleState > uint256(SaleStates.MULTI)) revert InvalidSaleState();
 
         saleState = SaleStates(newSaleState);
+
+        emit SetSaleState(msg.sender, newSaleState);
     }
 
-    /// @notice Function used to set a new `_signer` value.
     function setSigner(address newSigner) external onlyOwner {
         _signer = newSigner;
+
+        emit SetSigner(msg.sender, newSigner);
     }
 
-    /// @notice Function used to set a new `_baseTokenURI` value.
     function setBaseTokenURI(string memory newBaseTokenURI) external onlyOwner {
         _baseTokenURI = newBaseTokenURI;
+
+        emit SetTokenURI(msg.sender, newBaseTokenURI);
     }
 
     /// @notice Function used to claim revenue share for `account`.
+    /// @param account Desired `account` to release revenue for.
     function release(address payable account) public override {
         if (msg.sender != account) revert AccountMismatch();
         super.release(account);

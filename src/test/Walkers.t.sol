@@ -21,6 +21,10 @@ contract WalkersTest is Test {
     uint256 public constant PRIVATE_KEY = 1;
 
     event Minted(address indexed receiver, uint256 quantity);
+    event SetPublicTokens(address indexed account, uint256 amount);
+    event SetSaleState(address indexed account, uint256 saleState);
+    event SetTokenURI(address indexed account, string tokenURI);
+    event SetSigner(address indexed account, address signer);
 
     modifier setPublicTokens(uint256 quantity) {
         walkers.setPublicTokens(quantity);
@@ -80,7 +84,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         vm.expectEmit(true, true, false, false);
         emit Minted(ALICE, 1);
         walkers.publicMint{value: price}(1, signature);
@@ -95,7 +99,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         walkers.publicMint{value: price}(1, signature);
         walkers.publicMint{value: price}(1, signature);
 
@@ -107,7 +111,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidSaleState.selector);
         walkers.publicMint{value: price}(1, signature);
     }
@@ -120,7 +124,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidEtherAmount.selector);
         walkers.publicMint{value: price - 1}(1, signature);
         vm.expectRevert(IWalkers.InvalidEtherAmount.selector);
@@ -135,7 +139,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.WalletLimitExceeded.selector);
         walkers.publicMint{value: price * 3}(3, signature);
     }
@@ -149,7 +153,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.MaxSupplyExceeded.selector);
         walkers.publicMint{value: price}(1, signature);
     }
@@ -163,7 +167,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.PublicSupplyExceeded.selector);
         walkers.publicMint{value: price}(1, signature);        
     }
@@ -176,7 +180,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 2, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidSignature.selector);
         walkers.publicMint{value: price}(1, signature);   
     }
@@ -192,7 +196,7 @@ contract WalkersTest is Test {
         uint64 aux = walkers.getAux(ALICE);
         assertEq(aux, 0);
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectEmit(true, true, false, false);
         emit Minted(ALICE, 1);
         walkers.multilistMint{value: price}(1, signature);
@@ -217,10 +221,10 @@ contract WalkersTest is Test {
         assertEq(auxA, 0);
         assertEq(auxB, 0);
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         walkers.multilistMint{value: price * 2}(2, signatureA);
 
-        hoax(BOB);
+        hoax(BOB, BOB);
         walkers.multilistMint{value: price * 1}(1, signatureB);
 
         uint256 balanceA = walkers.balanceOf(ALICE);
@@ -242,7 +246,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'MULTI');
         uint256 price = walkers.MULTI_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidSaleState.selector);
         walkers.multilistMint{value: price}(1, signature);
     }
@@ -255,7 +259,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'MULTI');
         uint256 price = walkers.MULTI_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidEtherAmount.selector);
         walkers.multilistMint{value: price - 1}(1, signature);
         vm.expectRevert(IWalkers.InvalidEtherAmount.selector);
@@ -270,7 +274,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'MULTI');
         uint256 price = walkers.MULTI_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.MaxSupplyExceeded.selector);
         walkers.multilistMint{value: price}(1, signature);
     }
@@ -283,7 +287,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'MULTI');
         uint256 price = walkers.MULTI_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         walkers.multilistMint{value: price}(1, signature);
         vm.expectRevert(IWalkers.TokenClaimed.selector);
         walkers.multilistMint{value: price}(1, signature);
@@ -297,7 +301,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.MULTI_PRICE();
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert(IWalkers.InvalidSignature.selector);
         walkers.multilistMint{value: price}(1, signature);
     }
@@ -309,7 +313,7 @@ contract WalkersTest is Test {
     }
 
     function testCannotOwnerMintNonOwner() public {
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         vm.expectRevert("Ownable: caller is not the owner");
         walkers.ownerMint(ALICE, 1);
     }
@@ -324,7 +328,10 @@ contract WalkersTest is Test {
     function testSetPublicTokens(uint16 amount) public {
         vm.assume(amount <= 5555);
 
+        vm.expectEmit(true, true, false, false);
+        emit SetPublicTokens(address(this), uint256(amount));
         walkers.setPublicTokens(amount);
+        
         uint256 tokens = walkers.publicTokens();
 
         assertEq(tokens, amount);
@@ -341,7 +348,7 @@ contract WalkersTest is Test {
         bytes memory signature = _getSignature(ALICE, 1, 'PUBLIC');
         uint256 price = walkers.PUBLIC_PRICE();
 
-        startHoax(ALICE);
+        startHoax(ALICE, ALICE);
         walkers.publicMint{value: price}(1, signature);
         vm.expectRevert(IWalkers.PublicSupplyExceeded.selector);
         walkers.publicMint{value: price}(1, signature);
@@ -349,7 +356,7 @@ contract WalkersTest is Test {
 
         walkers.setPublicTokens(supply + 1);
 
-        hoax(ALICE);
+        hoax(ALICE, ALICE);
         walkers.publicMint{value: price}(1, signature);
 
         uint256 balance = walkers.balanceOf(ALICE);
@@ -371,14 +378,20 @@ contract WalkersTest is Test {
     function testSetSaleState() public {
         uint256 _state;
 
+        vm.expectEmit(true, true, false, false);
+        emit SetSaleState(address(this), 1);
         walkers.setSaleState(uint256(Walkers.SaleStates.PUBLIC));
         _state = uint256(walkers.saleState());
         assertEq(_state, 1);
 
+        vm.expectEmit(true, true, false, false);
+        emit SetSaleState(address(this), 2);
         walkers.setSaleState(uint256(Walkers.SaleStates.MULTI));
         _state = uint256(walkers.saleState());
         assertEq(_state, 2);
 
+        vm.expectEmit(true, true, false, false);
+        emit SetSaleState(address(this), 0);
         walkers.setSaleState(uint256(Walkers.SaleStates.PAUSED));
         _state = uint256(walkers.saleState());
         assertEq(_state, 0);
@@ -396,7 +409,10 @@ contract WalkersTest is Test {
     }
 
     function testSetSigner(address newSigner) public {
+        vm.expectEmit(true, true, false, false);
+        emit SetSigner(address(this), newSigner);
         walkers.setSigner(newSigner);
+
         address _signer = walkers.signer();
         assertEq(_signer, newSigner);
     }
@@ -408,8 +424,12 @@ contract WalkersTest is Test {
     }
 
     function testSetBaseTokenURI() public {
+        vm.expectEmit(true, true, false, false);
+        emit SetTokenURI(address(this), "test/");
         walkers.setBaseTokenURI("test/");
+
         string memory tokenURI = walkers.tokenURI(1);
+
         assertEq(tokenURI, "test/1");
     }
 
