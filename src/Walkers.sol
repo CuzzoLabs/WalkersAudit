@@ -153,7 +153,7 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     /// @notice Function used to get the `TokenOwnership` data for a specified token.
     /// @param tokenId A Multiversal Walkers token ID.
     /// @return Returns a `TokenOwnership` data type as defined in ERC721A.
-    function tokenOwnership(uint256 tokenId) public view returns (TokenOwnership memory) {
+    function tokenOwnership(uint256 tokenId) external view returns (TokenOwnership memory) {
         return _ownershipOf(tokenId);
     }
 
@@ -161,7 +161,7 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     /// @param account Desired `account` to check the `aux` value for.
     /// @return Returns a value of either 1 or 0. 1 indicates the user has claimed a token
     /// in `multilistMint`, 0 if not.
-    function getAux(address account) public view returns (uint64) {
+    function getAux(address account) external view returns (uint64) {
         return _getAux(account);
     }
 
