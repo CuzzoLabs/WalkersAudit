@@ -456,12 +456,12 @@ contract WalkersTest is Test {
         hoax(ALICE, 0);
         walkers.release(payable(ALICE));
         balanceA = ALICE.balance;
-        assertEq(balanceA, 1115.5 ether);
+        assertEq(balanceA, 1199.405 ether);
         
         hoax(BOB, 0);
         walkers.release(payable(BOB));
         balanceB = BOB.balance;
-        assertEq(balanceB, 34.5 ether);
+        assertEq(balanceB, 37.095 ether);
     }
 
     function testCannotReleaseNonShareHolder() public {

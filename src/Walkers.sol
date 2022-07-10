@@ -78,8 +78,8 @@ contract Walkers is IWalkers, Ownable, ERC721AQueryable, PaymentSplitter {
     uint256 public constant RESERVED_TOKENS = 55;
     uint256 public constant WALLET_LIMIT = 2;
 
-    uint256 public constant PUBLIC_PRICE = 0.25 ether;
-    uint256 public constant MULTI_PRICE = 0.175 ether;
+    uint256 public constant PUBLIC_PRICE = 0.269 ether;
+    uint256 public constant MULTI_PRICE = 0.188 ether;
 
     /// @dev Sets a soft-cap to be used in the `PUBLIC` sale phase.
     /// In the event of a FCFS mint, set this value to `MAX_SUPPLY`.
